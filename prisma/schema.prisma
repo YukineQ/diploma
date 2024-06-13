@@ -1,0 +1,161 @@
+datasource db {
+  provider = "mysql"
+  url      = "mysql://root:k25312531A@localhost/forum_db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum AccountType {
+  USER
+  ADMIN
+}
+
+model User {
+  id            String      @id @default(cuid())
+  name          String?
+  email         String?     @unique
+  emailVerified DateTime?
+  image         String?
+  type          AccountType @default(USER)
+  avatar        String?
+  uri           String?
+  posts         Post[]
+  subsites      Subsite[]
+
+  Session       Session[]
+  Account       Account?
+  Authenticator Authenticator[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                       String  @id @default(cuid())
+  userId                   String  @unique
+  type                     String
+  provider                 String
+  providerAccountId        String
+  refresh_token            String? @db.Text
+  access_token             String? @db.Text
+  expires_at               Int?
+  token_type               String?
+  scope                    String?
+  id_token                 String? @db.Text
+  session_state            String?
+  refresh_token_expires_in Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Optional for WebAuthn support
+model Authenticator {
+  credentialID         String  @unique
+  userId               String
+  providerAccountId    String
+  credentialPublicKey  String
+  counter              Int
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  transports           String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, credentialID])
+}
+
+enum Status {
+  PUBLIC
+  DRAFT
+}
+
+// enum ReactionType {
+//   LIKE
+//   LOVE
+//   HAHA
+//   WOW
+//   SAD
+//   ANGRY
+// }
+
+model Post {
+  id        String            @id @default(cuid())
+  title     String
+  content   String
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  author    User              @relation(fields: [authorId], references: [id])
+  authorId  String
+  status    Status            @default(PUBLIC)
+  subsite   Subsite           @relation(fields: [subsiteId], references: [id])
+  subsiteId String
+  reactions ReactionOnPosts[]
+}
+
+model ReactionType {
+  id        String            @id @default(cuid())
+  icon      Bytes
+  name      String
+  reactions ReactionOnPosts[]
+}
+
+model ReactionOnPosts {
+  post       Post         @relation(fields: [postId], references: [id])
+  postId     String
+  reaction   ReactionType @relation(fields: [reactionId], references: [id])
+  reactionId String
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@id([reactionId, postId])
+}
+
+enum Subtype {
+  COMMUNITY
+  PERSONAL
+}
+
+model Subsite {
+  id              String   @id @default(cuid())
+  avatar          String?
+  cover           String?
+  description     String?
+  isEnableWriting Boolean  @default(false)
+  name            String
+  subtype         Subtype  @default(PERSONAL)
+  uri             String
+  posts           Post[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  creator         User     @relation(fields: [creatorId], references: [id])
+  creatorId       String
+}
